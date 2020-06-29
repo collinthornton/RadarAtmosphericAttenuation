@@ -1,0 +1,36 @@
+package main.p528;
+
+public class Path {
+	double h_r1, h_r2;		// terminal heights (1 is lower)
+	double f;				// frequency in MHz
+	double q;				// Time percentage
+	double d;				// distance (km)
+	
+	// These values must be initialized after construction
+	double d_0, d_ML, d_d;	
+	double A_d0, A_dML, A_LOS, A_a, A_fs, A_Y;
+	
+	
+	// Total loss
+	double A;
+	
+	// Effective reflection coefficient
+	double R_Tg;
+	
+	
+	/** Class to hold path parameters
+	 *  
+	 * @param h1	Actual height of low terminal	(km)
+	 * @param h2	Actual height of high terminal	(km)
+	 * @param f		Frequency	(MHz)
+	 * @param q		Time percentage	(0.00-1.00)
+	 * @param d		Path distance	(km)
+	 */
+	Path(double h1, double h2, double f, double q, double d) {
+		h_r1 = h1;
+		h_r2 = h2;
+		this.f = f;
+		this.q = q;
+		this.d = d;
+	}
+}

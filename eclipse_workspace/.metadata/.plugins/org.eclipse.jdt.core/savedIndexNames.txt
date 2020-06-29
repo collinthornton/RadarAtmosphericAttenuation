@@ -1,0 +1,3 @@
+INDEX VERSION 1.131+D:\tinker\projects\radar_calculator\eclipse_workspace\.metadata\.plugins\org.eclipse.jdt.core
+3883327005.index
+1213200957.index
