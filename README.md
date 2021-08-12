@@ -3,7 +3,7 @@
 
 
 ## Repository Structure
-Driver code: [TransmissionCalculator.java](eclipse_workspace/AtmosphericAttenuationCalculator2.0/src/main/TransmissionCalculator.java)
+Driver code: [TransmissionCalculator.java](eclipse_workspace/AtmosphericAttenuationCalculator2.0/src/main/TransmissionLossCalculator.java)
 
 Resources (including whitepapers and some generated data): resources/
 
