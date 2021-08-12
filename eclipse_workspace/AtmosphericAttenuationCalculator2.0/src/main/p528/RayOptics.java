@@ -17,8 +17,8 @@ public class RayOptics {
 	public static RayOpticsData compute(double psi, Path path, TerminalGeometry.Geom lt, TerminalGeometry.Geom ht) {
 		RayOpticsData optics = new RayOpticsData();
 				
-		double z = (Constants.A_0/Constants.A_E) - 1;		// (Eq. 62)
-		double k_a = 1/(1+z*Math.cos(psi));
+		double z = (Constants.A_0/Constants.A_E) - 1.0;		// (Eq. 62)
+		double k_a = 1.0/(1.0+z*Math.cos(psi));
 		optics.a_a = Constants.A_0*k_a;
 		
 		double deltah_a1 = lt.delta_h*(optics.a_a - Constants.A_0)/(Constants.A_E-Constants.A_0);
@@ -41,17 +41,19 @@ public class RayOptics {
 			Hprime_2 = optics.D2*Math.tan(psi);
 		}
 		
-		// double deltaz = Math.abs(z_1-z_2); 				// (Eq. 71)
+		double deltaz = Math.abs(optics.z_1-optics.z_2); 				// (Eq. 71)
 		
-		optics.d = Math.max(optics.a_a*(theta_1+theta_2), 0);
+		optics.d = Math.max(optics.a_a*(theta_1+theta_2), 0.0);
 		
 		double alpha = Math.atan((Hprime_2-Hprime_1)/(optics.D1+optics.D2));
 		optics.r_0 = (optics.D1+optics.D2)/Math.cos(alpha);
 		optics.r_12 = (optics.D1+optics.D2)/Math.cos(psi);
 		
-		optics.deltar = 4*Hprime_1*Hprime_2/(optics.r_0+optics.r_12);
+		if(optics.r_0 < deltaz) optics.r_0 = deltaz;
+		
+		optics.deltar = 4.0*Hprime_1*Hprime_2/(optics.r_0+optics.r_12);
 		optics.theta_h1 = alpha - theta_1;
-		optics.theta_h2 = -1*(alpha + theta_2);
+		optics.theta_h2 = -(alpha + theta_2);
 		return optics;
 	}
 }

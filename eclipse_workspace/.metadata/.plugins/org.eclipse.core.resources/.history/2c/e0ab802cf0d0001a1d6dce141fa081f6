@@ -1,0 +1,2 @@
+module atmospheric_attenuation_calculator_2_0 {
+}

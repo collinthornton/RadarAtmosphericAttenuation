@@ -5,15 +5,15 @@ public class Constants {
 	
 	/** surface refractivity 	(301 N-Units)
 	 */
-	public static double N_S = 301;
+	public static double N_S = 301.0;
 	
 	/** actual Earth radius (6370 km)
 	 */
-	public static double A_0 = 6370;
+	public static double A_0 = 6370.0;
 	
 	/** effective Earth radius (8493 km)
 	 */
-	public static double A_E = 8493;	
+	public static double A_E = 8493.0;	
 	
 	/** effective thickness of oxygen absorbing layer (3.25 km)
 	 */
@@ -25,7 +25,7 @@ public class Constants {
 	
 	/** relative dielectric constant (15)
 	 */
-	public static double E_R = 15;		
+	public static double E_R = 15.0;		
 	
 	/** conductivity (0.005 S/m)
 	 */

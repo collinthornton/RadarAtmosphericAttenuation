@@ -1,8 +1,11 @@
 package main;
 
-import main.p528.AtmosphericAttenuationCalculator;
+import org.apache.commons.math3.util.FastMath;
+
+import main.blake.AtmosphericAbsorption;
 import main.p838.RainAttenuationCalculator;
 import main.p840.CloudsAttenuationCalculator;
+import main.p676.AtmosphericAttenuationCalculator;	// Old method
 
 /** Class to calculate the total atmospheric attenuation of radar transmission
  * 
@@ -10,66 +13,167 @@ import main.p840.CloudsAttenuationCalculator;
  * @note Assumes horizontal polarization
  */
 public class TransmissionLossCalculator {
-	/** Cacluate the total attenuation. (dB)
-	 * 
-	 * @param f Frequency (GHz)
-	 * @param d One-way distance (km)
-	 * @param gtx Gain of transmitter (dB)
-	 * @param grx Gain of receiver (dB)
-	 * @return total attenuation adjusted for 2 way loss 
-	 */
-	public static double calcTotalAttenuation(double f, double h_r1, double h_r2, double q, double d, double T, double cd,
-			double rr, double theta, double gtx, double grx) {
-		
-		double total_attenuation = calcFreeSpaceLoss(f, d);
-		total_attenuation += CloudsAttenuationCalculator.calculate(f, T, cd)*d;
-		total_attenuation += RainAttenuationCalculator.calculate(f, rr, theta, 0)*d;
-		total_attenuation += AtmosphericAttenuationCalculator.compute(f, h_r1, h_r2, q, cd);
-		
-		total_attenuation -= gtx;
-		total_attenuation -= grx;
-		total_attenuation += 3;	
-		
-		return total_attenuation;
+	private static enum Method {
+		DISTANCE,
+		ANGULAR,
+		DISTANCE_ERROR
 	}
 	
-	/** Calculate the attenuation due to propagation through free space
+	/** Calculate total 2-way atmospheric loss of radar ray
 	 * 
-	 * @param f Frequency 				(GHz)
-	 * @param d Distance 				(km)
-	 * @return Attenuation 				(dB)
-	 * @note Based on Rec. ITU-R P.528-4 Annex III, Step 8
+	 * @param f__ghz Frequency (GHz)
+	 * @param h_surface__ft Height of antenna above MSL (ft)
+	 * @param h_high__ft Height of target above antenna (ft)
+	 * @param d__nm 1-way straight-line distance between antenna and target (nm)
+	 * @param T_c__f Temperature of clouds (f)
+	 * @param M__g_m3 Water density of clouds (g/m^3)
+	 * @param h_c__ft Columnar height of clouds (ft)
+	 * @param h_r__ft Columnar height of liquid rain (ft)
+	 * @param rr__mm_hr Rain rate (mm/hr)
+	 * @return Total 2-way attenuation (dB)
 	 */
-	public static double calcFreeSpaceLoss(double f, double d) {
-		return 32.45 + 20*Math.log10(f*1000*d);
+	public static double calcTotalAttenuation(double f__ghz, double h_surface__ft, double h_high__ft, double d__nm, 
+			double T_c__f, double M__g_m3, double h_c__ft, double h_r__ft,	double rr__mm_hr) {
+		
+		double d__km = d__nm * 1.852;
+		double h_surface__km = h_surface__ft * 0.0003048;
+		double h_high__km = h_high__ft * 0.0003048;
+		double h_c__km = h_c__ft * 0.0003048;
+		double h_r__km = h_r__ft * 0.0003048;
+		
+		double T_c__k = (5.0/9.0)*(T_c__f-32.0) + 273.15;
+		
+		double theta_0__rad = AtmosphericAbsorption.approxElevationAngle(h_surface__km, h_high__km, d__km);
+		
+		double total_attenuation__db = 0.0;
+		total_attenuation__db += AtmosphericAbsorption.computeAtmosphericLossElevAngleKnown(h_surface__km, h_high__km, theta_0__rad, f__ghz);
+		total_attenuation__db += CloudsAttenuationCalculator.calculate(f__ghz, theta_0__rad, h_c__km, T_c__k, M__g_m3);
+		total_attenuation__db += RainAttenuationCalculator.calculate(f__ghz, theta_0__rad, h_r__km, rr__mm_hr, 0);
+		
+		return total_attenuation__db;
 	}
 	
 	
-	
-	
-	
-	
+	/** Calculate the temporal difference between the method found in ITU REC. P.676-8 (old method) and Blake's method (new method)
+	 * 
+	 */
+	private static void compareCost(Method method) {
+		double f__ghz = 0.5;
+		double h_surface__nm = 000.0/6076.12;
+		double d__km = 1.0;
+		
+		int M = 450;
+		
+		double[][] blake_output = new double[M][4];
+		double[][] old_output = new double[M][4];
+		
+		double theta_t__rad = Math.toRadians(10);
+		double r_1__km = h_surface__nm*1.852 + 6370.0;
+		double altitude = Math.sqrt(r_1__km*r_1__km + d__km*d__km - 2*r_1__km*d__km*FastMath.cos(theta_t__rad+FastMath.PI/2.0)) - 6370.0;
+		
+		System.out.println("method: " + method + "\ttheta_t__rad: " + Math.toDegrees(theta_t__rad) + "\th_surface_ft: " + h_surface__nm*6076.12);
+		for(int i=1; i<M; ++i) {	
+			switch(method) {
+			case DISTANCE:
+				d__km = i;
+				break;
+			case ANGULAR:
+				theta_t__rad = Math.toRadians((double)i/10.0);
+				break;
+			case DISTANCE_ERROR:
+				d__km = i;
+				break;
+			}
+			
+			old_output[i][0] = d__km/1.852;
+			blake_output[i][0] = d__km/1.852;
+			
+			old_output[i][1] = Math.toDegrees(theta_t__rad);
+			blake_output[i][1] = Math.toDegrees(theta_t__rad);
+			
+			altitude = Math.sqrt(6370.0*6370.0 + d__km*d__km - 2*6370.0*d__km*FastMath.cos(theta_t__rad+FastMath.PI/2.0)) - 6370.0;
+			
+			final int AVG_ITERATIONS = 500;
+			for(int j=1; j<AVG_ITERATIONS; ++j) {
+				long begin_time = System.nanoTime();
+				old_output[i][2] = AtmosphericAttenuationCalculator.calcTotalAttenuation(f__ghz, theta_t__rad, (double)i/1.852, altitude/1.852);
+				old_output[i][3] += ((double)System.nanoTime() - (double)begin_time) / 1.0e6;
+				
+				begin_time = System.nanoTime();
+				blake_output[i][2] = AtmosphericAbsorption.computeAtmosphericLoss(h_surface__nm*1.852, altitude, d__km, f__ghz);
+				blake_output[i][3] += ((double)System.nanoTime() - (double)begin_time) / 1.0e6;
+			}
+			old_output[i][3] /= AVG_ITERATIONS;
+			blake_output[i][3] /= AVG_ITERATIONS;
+			
+			switch(method) {
+			case DISTANCE:
+				System.out.format("%5.3f\t%9.6f\t%9.6f\t%9.6f\t%9.6f%n", d__km/1.852, blake_output[i][2], old_output[i][2], blake_output[i][3], old_output[i][3]);
+				break;
+			case ANGULAR:
+				System.out.format("%5.3f\t%9.6f\t%9.6f\t%9.6f%n", Math.toDegrees(theta_t__rad), blake_output[i][2], old_output[i][2], (blake_output[i][3]/old_output[i][3]));
+				break;
+			case DISTANCE_ERROR:
+				System.out.format("%5.3f\t%9.6f\t%9.6f\t%9.6f%n", d__km/1.852, (blake_output[i][2]-old_output[i][2]), ((blake_output[i][2]-old_output[i][2])/blake_output[i][2]), (blake_output[i][3]/old_output[i][3]));
+
+			}
+		}
+	}
+	private static double ftToKm(double input__ft) { return input__ft * 0.0003048; }
 	
 	
 	public static void main(String[] args) {
-		double f = 9.5;
-		double d = 10;
+		double f__ghz = 0.5;
+		double h_surface__ft = 1000, h_high__ft = 40000;
+		double d__nm = 50;
 		
-		double T = 293.15;
-		double M = 0.5;
+		double h_c__ft = 10000, M__g_m3 = 0.05, T_c__f = 33.0;
+		double h_r__ft = 5000, rr__mm_hr = 4.0;
+			
 		
-		double rain_rate = 16, theta = 0, tau = 0;
-				
-		double fsl = calcFreeSpaceLoss(f, d);
-		double ca = CloudsAttenuationCalculator.calculate(f, T, M);
-		double ra = RainAttenuationCalculator.calculate(f, rain_rate, theta, tau);
+		double loss__db = 0;
+		long sumTime = 0;
 		
-		//double total_attenuation = calcTotalAttenuation(f, d, T, M, rain_rate, theta, gain_tx, gain_rx);
 		
-		System.out.println("Free-space attenuation (dB): " + fsl);
-		System.out.println("Cloud attenuation (dB/km): " + ca);
-		System.out.println("Rain attenuation (dB/km): " + ra);
-		//System.out.println("Total attenuation (dB): " + total_attenuation);
+		final boolean COMPARE_COST = true;
+		Method method = Method.DISTANCE;
 
+		
+		if(COMPARE_COST) {
+			compareCost(method);
+			System.exit(0);
+		}
+		
+		int i=0;
+		for(i=0; i<1e3; ++i) {
+			long begin_time = System.currentTimeMillis();
+			loss__db = calcTotalAttenuation(f__ghz, h_surface__ft, h_high__ft, d__nm, T_c__f, M__g_m3, h_c__ft, h_r__ft, rr__mm_hr);
+			sumTime += System.currentTimeMillis() - begin_time;
+		}
+		
+		
+		double d__km = d__nm * 1.852;
+		double h_surface__km = ftToKm(h_surface__ft);
+		double h_high__km 	 = ftToKm(h_high__ft);
+		double h_c__km 		 = ftToKm(h_c__ft);
+		double h_r__km 		 = ftToKm(h_r__ft);
+		
+		double T_c__k = (5.0/9.0)*(T_c__f-32.0) + 273.15;
+
+		
+		double theta_0__rad = AtmosphericAbsorption.approxElevationAngle(h_surface__km, h_high__km, d__km);
+		
+		double atmos__db  = AtmosphericAbsorption.computeAtmosphericLossElevAngleKnown(h_surface__km, h_high__km, theta_0__rad, f__ghz);
+		double clouds__db = CloudsAttenuationCalculator.calculate(f__ghz, theta_0__rad, h_c__km, T_c__k, M__g_m3);
+		double rain__db   = RainAttenuationCalculator.calculate(f__ghz, theta_0__rad, h_r__km, rr__mm_hr, 0);
+		
+		
+		System.out.format("Initial elevation angle: %9.6f%n%n", theta_0__rad*180.0/Math.PI);
+		System.out.format("Loss to atmospheric absorption: %9.6f%n", atmos__db);
+		System.out.format("Loss to clouds: %9.6f%n",  clouds__db);
+		System.out.format("Loss to rain: %9.6f%n", rain__db);
+		System.out.println(' ');
+		System.out.format("Total Loss: %9.6f%n", loss__db);
+		System.out.println("Time per calculation: " + (double)sumTime / (double)i);		
 	}	
 }

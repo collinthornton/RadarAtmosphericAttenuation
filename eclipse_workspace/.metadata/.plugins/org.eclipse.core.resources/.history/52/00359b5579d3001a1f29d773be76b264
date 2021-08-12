@@ -1,0 +1,126 @@
+package main.blake;
+
+import org.apache.commons.math3.util.FastMath;
+
+
+public class GenLookupTable {
+	private static class TempPres {
+		public final double T__k;
+		public final double p__mbar;
+		
+		TempPres(double T, double p) {
+			this.T__k = T;
+			this.p__mbar = p;
+		}
+	}
+	
+	private static final double A_0 = 6370.0;
+			
+	private static double[][] o_res_tab = {
+			{ 56.2648, 118.7505},
+			{ 58.4466, 62.4863 },
+			{ 59.5910, 60.3061 },
+			{ 60.4348, 59.1642 },
+			{ 61.1506, 58.3239 },
+			{ 61.8002, 57.6125 },
+			{ 62.4112, 56.9682 },
+			{ 62.9980, 56.3634 },
+			{ 63.5685, 55.7839 },
+			{ 64.1272, 55.2214 },
+			{ 64.6779, 54.6728 },
+			{ 65.2240, 54.1294 },
+			{ 65.7626, 53.5960 },
+			{ 66.2978, 53.0695 },
+			{ 66.8313, 52.5458 },
+			{ 67.3627, 52.0259 },
+			{ 67.8923, 51.5091 },
+			{ 68.4205, 50.9949 },
+			{ 68.9478, 50.4830 },
+			{ 69.4741, 49.9730 },
+			{ 70.0000, 49.4648 },
+			{ 70.5249, 48.9582 },
+			{ 71.0497, 48.4530 }
+	};
+			
+	private static TempPres computeTempPressure(double h__m) {
+		double r__m = A_0 * 1000.0;
+		
+		double h_g__m = (r__m*h__m) / (r__m + h__m);
+		
+		double R 	= 8.31432;
+		double g_0	= 9.80665;
+		double M 	= 0.0289644;
+		
+		double T__k, p__mbar;
+		if(h_g__m < 11000.0) {
+			double P_b 	= 1013.25;
+			double T_b 	= 288.16;
+			double L_b	= -0.0065;
+			
+			T__k 	= T_b + L_b*h_g__m;
+			p__mbar = P_b*FastMath.pow(T_b/(T_b + L_b*h_g__m), (g_0*M)/(R*L_b));
+		}
+		else if(h_g__m < 25000.0) {
+			double P_b 	= 226.33426;
+			double T_b	= 216.66;
+			
+			T__k 	= T_b;
+			p__mbar = P_b*FastMath.exp((-g_0*M*(h_g__m-11000.0))/(R*T_b));
+		}
+		else {
+			double P_b	= 24.890272;
+			double T_b 	= 216.66;
+			double L_b  = 0.0030;
+			
+			T__k 	= T_b + L_b*(h_g__m-25000.0);
+			p__mbar = P_b*FastMath.pow(T_b/(T_b + L_b*(h_g__m-25000.0)), (g_0*M)/(R*L_b));
+		}
+		
+		TempPres output = new TempPres(T__k, p__mbar);
+		return output;
+	}
+	private static double computeOxygenCoefficient(double h__km, double f__ghz) {	
+		double g_h;
+		
+		if(h__km <= 8.0) 			g_h = 0.640;
+		else if(h__km <= 25.0) 		g_h = 0.640 + 0.04218*(h__km-8.0);
+		else						g_h = 1.357;
+		
+		TempPres output = computeTempPressure(h__km*1.0e3);
+		double T__k = output.T__k;
+		double p__mbar = output.p__mbar;
+		
+		double p_0__mbar = 1013.25;
+		double T_0__k = 300.0;
+				
+		double delta_f__ghz = g_h * p__mbar/p_0__mbar * T_0__k/T__k;
+		double F_0 = delta_f__ghz / (f__ghz*f__ghz + delta_f__ghz*delta_f__ghz);
+				
+		double A = 0;
+		for(int i=0; i<23; ++i) {
+			double[] F_N = new double[2];
+			for(int j=0; j<2; ++j) {
+				double f_ = o_res_tab[i][j]-f__ghz, f = o_res_tab[i][j]+f__ghz;
+				F_N[j] = delta_f__ghz/(f_*f_ + delta_f__ghz*delta_f__ghz) +  delta_f__ghz/(f*f   + delta_f__ghz*delta_f__ghz); 
+			}
+			
+			double N = 2.0*i+1.0;
+			double[] mu = { (N*(2.0*N+3.0))/(N+1.0), ((N+1.0)*(2.0*N-1.0))/N };
+			double mu_0 = (2.0*(N*N + N + 1.0)*(2.0*N + 1.0)) / (N*(N+1.0));
+			
+			double E_N_over_k = 2.06844*N*(N+1.0);
+			
+			A += (F_N[0]*mu[0] + F_N[1]*mu[1] + F_0*mu_0)*Math.exp(-E_N_over_k/T__k);
+		}
+		
+		return 2.0058*p__mbar*f__ghz*f__ghz*A/(T__k*T__k*T__k);
+	}
+	
+	
+	
+	public static void main(String[] args) {
+		double f__ghz = 0.100;
+		
+		for(double i = 0.100; i < 18.00; i+=0.100) System.out.println(computeOxygenCoefficient(i, f__ghz));
+	}
+}

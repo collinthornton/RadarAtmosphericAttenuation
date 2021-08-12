@@ -33,42 +33,45 @@ public class RainAttenuationCalculator {
 		
 	/** Calculate loss in dB/km due to rain
 	 * 
-	 * @param f Frequency (GHz) 1 <= f <= 1000
+	 * @param f__ghz Frequency (GHz) 1 <= f__ghz <= 1000
+	 * @param theta_0__rad Path elevation angle (rad)
+	 * @param h__km Vertical path distance in rain (km)
 	 * @param rain_rate Rate of rain (mm/hr)
-	 * @param theta Path elevation angle (deg)
-	 * @param tau Polarization tilt angle (deg). 0 = horizontal. 90 = vertical. 45 = circular
-	 * @return dB/km due to rain. Doubled for 2-way loss
+	 * @param tau__rad Polarization tilt angle (rad). 0 = horizontal. pi/2 = vertical. pi/4 = circular
+	 * @return dB due to rain. Doubled for 2-way loss
 	 * @note This function is based on Rec. ITU-R P.838-3, full paper
 	 */	
-	public static double calculate(double f, double rain_rate, double theta, double tau) {
-		if(f < 1) throw new IllegalArgumentException("Rain atten. freq must be between 1 and 1000 GHz");
-		if(f > 1000) throw new IllegalArgumentException("Rain atten. freq must be between 1 and 1000 GHz");
+	public static double calculate(double f__ghz, double theta_0__rad, double h__km, double rain_rate,  double tau__rad) {
+		if(f__ghz < 0.0) 	throw new IllegalArgumentException("Rain atten. freq must be positive");
+		if(f__ghz > 1000.0) throw new IllegalArgumentException("Rain atten. freq must be between 1 and 1000 GHz");
 		
-		double log_kh = 0, log_kv = 0;
-		double ah = 0, av = 0;
+		double log_kh = 0.0, log_kv = 0.0;
+		double ah = 0.0, av = 0.0;
 		
+		// (Eqs) 2-3
 		for(int i=0; i<5; ++i) {
 			if(i<4) {
-				log_kh += kh_aj[i]*Math.exp(-1*Math.pow((Math.log10(f)-kh_bj[i])/kh_cj[i], 2));
-				log_kv += kv_aj[i]*Math.exp(-1*Math.pow((Math.log10(f)-kv_bj[i])/kv_cj[i], 2));
+				log_kh += kh_aj[i]*Math.exp(-Math.pow((Math.log10(f__ghz)-kh_bj[i])/kh_cj[i], 2.0));
+				log_kv += kv_aj[i]*Math.exp(-Math.pow((Math.log10(f__ghz)-kv_bj[i])/kv_cj[i], 2.0));
 			}
-			ah += ah_aj[i]*Math.exp(-1*Math.pow((Math.log10(f)-ah_bj[i])/ah_cj[i], 2));
-			av += av_aj[i]*Math.exp(-1*Math.pow((Math.log10(f)-av_bj[i])/av_cj[i], 2));
+			ah += ah_aj[i]*Math.exp(-1*Math.pow((Math.log10(f__ghz)-ah_bj[i])/ah_cj[i], 2.0));
+			av += av_aj[i]*Math.exp(-1*Math.pow((Math.log10(f__ghz)-av_bj[i])/av_cj[i], 2.0));
 		}
-		log_kh += kh_mk*Math.log10(f)+kh_ck;
-		log_kv += kv_mk*Math.log10(f)+kv_ck;
-		ah += ah_ma*Math.log10(f)+ah_ca;
-		av += av_ma*Math.log10(f)+av_ca;
+		log_kh += kh_mk*Math.log10(f__ghz)+kh_ck;
+		log_kv += kv_mk*Math.log10(f__ghz)+kv_ck;
+		ah += ah_ma*Math.log10(f__ghz)+ah_ca;
+		av += av_ma*Math.log10(f__ghz)+av_ca;
 		
-		double kh = Math.pow(10, log_kh);
-		double kv = Math.pow(10, log_kv);
+		double kh = Math.pow(10.0, log_kh);
+		double kv = Math.pow(10.0, log_kv);
 		
-		theta = Math.toRadians(theta);
-		tau = Math.toRadians(tau);
+		// (Eq) 4
+		double k = (kh + kv + (kh-kv)*Math.cos(theta_0__rad)*Math.cos(theta_0__rad) * Math.cos(2.0*tau__rad)) / 2.0;		
 		
-		double k = (kh + kv + (kh-kv)*Math.pow(Math.cos(theta), 2) * Math.cos(2*tau)) / 2;		
-		double a = (kh*ah + kv*av + (kh*ah - kv*av)*Math.pow(Math.cos(theta), 2)*Math.cos(2*tau)) / (2*k);
+		// (Eq) 5
+		double a = (kh*ah + kv*av + (kh*ah - kv*av)*Math.cos(theta_0__rad)*Math.cos(theta_0__rad)*Math.cos(2.0*tau__rad)) / (2.0*k);
 		
-		return k*Math.pow(rain_rate, a);			
+		// (Eq) 1 accounting for 2-way path distance
+		return (2.0*h__km*k*Math.pow(rain_rate, a)/Math.sin(theta_0__rad));			
 	}
 }

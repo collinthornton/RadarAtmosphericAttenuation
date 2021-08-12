@@ -9,31 +9,50 @@ public class CloudsAttenuationCalculator {
 	
 	/** Calculate loss in db/km due to clouds and fog
 	 * 
-	 * @param f Frequency. (GHz) 0 <= f <= 200
-	 * @param T Temperature of cloud (F)
-	 * @param M Density of water vapor in cloud (g/m^3)
-	 * @return db/km due to clouds. Doubled for 2-way path loss
-	 * @note This function is based on Rec. ITU-R P.840-8, sections 1-2
+	 * @param f__ghz Frequency. 0 <= f <= 200	(GHz) 
+	 * @param theta_0__rad Elevation angle 		(rad)
+	 * @param h__km Vertical path distance in cloud	(km)
+	 * @param T__k   Temperature of cloud 		(k)
+	 * @param M__g_m3 Mass density of water in cloud 	(g/m^3)
+	 * @return 2-way atten. due to clouds 		(dB)
+	 * @note This function is based on Rec. ITU-R P.840-8, Annex I., Sections 1-2
 	 */
-	public static double calculate(double f, double T, double M) {
-		if(f < 0) throw new IllegalArgumentException("Cloud atten. freq must be between 0 and 200 GHz");
-		if(f > 200) throw new IllegalArgumentException("Cloud atten. freq must be between 0 and 200 GHz");
-	
-		T = (5/9)*(T-32)+273.15; // Convert to Kelvin
+	public static double calculate(double f__ghz, double theta_0__rad, double h__km, double T__k, double M__g_m3) {
+		if(f__ghz < 0.0)   throw new IllegalArgumentException("Cloud atten. freq must be between 0 and 200 GHz");
+		if(f__ghz > 200.0) throw new IllegalArgumentException("Cloud atten. freq must be between 0 and 200 GHz");
+			
+		// (Eq) 9
+		double theta = 300.0/T__k;
 		
-		double theta = 300/T;
+		// (Eq) 8
 		double e_2 = 3.52;
-		double e_0 = 77.66 + 103.3*(theta-1);
+		
+		// (Eq) 6
+		double e_0 = 77.66 + 103.3*(theta-1.0);
+		
+		// (Eq) 7
 		double e_1 = 0.0671*e_0;
 		
-		double f_p = 20.20 - 146*(theta-1) + 316*Math.pow(theta-1, 2);
+		// (Eq) 10
+		double f_p = 20.20 - 146.0*(theta-1.0) + 316.0*(theta-1.0)*(theta-1.0);
+		
+		// (Eq) 11
 		double f_s = 39.8*f_p;
 		
-		double e_prime = (e_0-e_1)/(1+Math.pow(f/f_p, 2)) + (e_1-e_2)/(1+Math.pow(f/f_s, 2)) + e_2;
-		double e_pprime = (f*(e_0-e_1))/(f_p*(1+Math.pow(f/f_p, 2))) + (f*(e_1-e_2))/(f_s*(1+Math.pow(f/f_s, 2)));
-		double nu = (2+e_prime)/e_pprime;
 		
-		double K_i = (0.819*f)/(e_pprime*(1+Math.pow(nu, 2)));
-		return K_i*M;		
+		// (Eq) 5
+		double e_prime = (e_0-e_1)/(1.0+(f__ghz/f_p)*(f__ghz/f_p)) + (e_1-e_2)/(1+(f__ghz/f_s)*(f__ghz/f_s)) + e_2;
+		
+		// (Eq) 4
+		double e_pprime = (f__ghz*(e_0-e_1))/(f_p*(1.0+(f__ghz/f_p)*(f__ghz/f_p))) + (f__ghz*(e_1-e_2))/(f_s*(1.0+(f__ghz/f_s)*(f__ghz/f_s)));
+		
+		// (Eq) 3
+		double nu = (2.0+e_prime)/e_pprime;
+		
+		// (Eq) 2
+		double K_i = (0.819*f__ghz)/(e_pprime*(1.0+nu*nu));
+		
+		// (Eq) 1 multiplied by 2-way path distance
+		return (2.0*K_i*M__g_m3*h__km)/Math.sin(theta_0__rad);		
 	}
 }

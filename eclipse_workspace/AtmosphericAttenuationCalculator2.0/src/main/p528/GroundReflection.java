@@ -14,19 +14,20 @@ public class GroundReflection {
 	public static GroundReflectionData compute(double psi, Path path) {
 		
 		// <<Step 1>>
-		double X = 18000*Constants.SIGMA/path.input.f;
-		double Y = Constants.E_R - Math.pow(Math.cos(psi), 2);
-		double T = Math.sqrt(Math.pow(Y, 2) + Math.pow(X, 2));
+		double X = 18000.0*Constants.SIGMA/path.input.f;
+		double Y = Constants.E_R - Math.cos(psi)*Math.cos(psi);
+		double T = Math.sqrt(Y*Y + X*X) + Y;
 		
 		double P = Math.sqrt(0.5*T);
-		double Q = X/(2*P);
-		double B = 1/(Math.pow(P, 2) + Math.pow(Q, 2));
-		double A = (2*P)/(Math.pow(P, 2) + Math.pow(Q, 2));
+		double Q = X/(2.0*P);
+		double B = 1.0/(P*P + Q*Q);
+		double A = (2.0*P)/(P*P + Q*Q);
 		
 		
 		// <<Step 2>>
 		GroundReflectionData data = new GroundReflectionData();
-		data.R_g = Math.sqrt(((1+B*Math.pow(Math.sin(psi), 2))-A*Math.sin(psi)) / ((1+B*Math.pow(Math.sin(psi), 2))+A*Math.sin(psi)));
+		data.R_g = Math.sqrt( (1.0 + B*Math.sin(psi)*Math.sin(psi) - A*Math.sin(psi)) / (1.0 + B*Math.sin(psi)*Math.sin(psi) + A*Math.sin(psi)) );
+		
 		data.phi_g = Math.atan2(-Q, Math.sin(psi)-P) - Math.atan2(Q, Math.sin(psi)+P);
 		return data;
 	}

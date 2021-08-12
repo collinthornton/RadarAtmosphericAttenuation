@@ -27,7 +27,7 @@ public class NakagamiRice {
 	private static final double[] q_indices = { 0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95, 0.98, 0.99 };
 	
 	public static double compute(double K, double q) {
-		if(q == 0.00 || q == 0.50) return 0;
+		if(q == 0.00 || q == 0.50) return 0.0;
 	
 		double[] temptable = new double[2];
 		
@@ -60,6 +60,6 @@ public class NakagamiRice {
 	
 	
 	public static void main(String[] args) {
-		System.out.println(compute(-13, 0.075));
+		System.out.println(compute(-13.0, 0.075));
 	}
 }

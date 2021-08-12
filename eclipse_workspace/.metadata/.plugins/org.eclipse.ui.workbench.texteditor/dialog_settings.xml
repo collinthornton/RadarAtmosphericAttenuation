@@ -1,24 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.GotoLineAction$GotoLineDialog_dialogBounds">
+		<item key="DIALOG_X_ORIGIN" value="724"/>
+		<item key="DIALOG_Y_ORIGIN" value="389"/>
+	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="lt.h"/>
+		<item key="selection" value=" }"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
-		<item key="wholeword" value="false"/>
+		<item key="wholeword" value="true"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
-			<item value="lt.h"/>
-			<item value="path.A_Y"/>
+			<item value=", }"/>
+			<item value="table"/>
+			<item value="commons.math3"/>
+			<item value="1.000313"/>
+			<item value="N_S"/>
+			<item value="6370"/>
+			<item value=" .0"/>
+			<item value=".0"/>
+			<item value="N"/>
+			<item value="(10 &lt; N &lt; 100)"/>
+			<item value="@note"/>
+			<item value="tau"/>
+			<item value="theta"/>
+			<item value="f"/>
 		</list>
 		<list key="replacehistory">
+			<item value=" }"/>
+			<item value="absorb_tab"/>
+			<item value="N_0"/>
+			<item value=""/>
+			<item value="Good range between 10 and 100."/>
+			<item value="tau__rad"/>
+			<item value="theta_0__rad"/>
+			<item value="f__ghz"/>
 		</list>
 	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
-		<item key="DIALOG_X_ORIGIN" value="632"/>
-		<item key="DIALOG_Y_ORIGIN" value="200"/>
+		<item key="DIALOG_X_ORIGIN" value="577"/>
+		<item key="DIALOG_Y_ORIGIN" value="597"/>
 		<item key="DIALOG_WIDTH" value="336"/>
-		<item key="DIALOG_HEIGHT" value="480"/>
+		<item key="DIALOG_HEIGHT" value="454"/>
 		<item key="DIALOG_FONT_NAME" value="1|Segoe UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI"/>
 	</section>
 </section>

@@ -1,0 +1,568 @@
+package main.blake;
+
+import org.apache.commons.math3.util.FastMath;
+import org.apache.commons.math3.analysis.UnivariateFunction;
+import org.apache.commons.math3.analysis.integration.*;
+
+/** Atmospheric Absorption Calculator
+ * 
+ * This calculator is primarily based on "Radar Range-Performance Analysis", by Lamont V. Blake, ch. 5
+ * Considering refraction, AtmosphericAbsorption computes loss to
+ * scattering by oxygen and water vapor
+ * 
+ * @author Collin Thornton
+ * @version 1.0.0
+ * @since 2020-07-28
+ *
+ */
+public class AtmosphericAbsorption {
+	private static class TempPres {
+		public final double T__k;
+		public final double p__mbar;
+		
+		TempPres(double T, double p) {
+			this.T__k = T;
+			this.p__mbar = p;
+		}
+	}
+	
+	
+	private static final double N_S = 313;
+	private static final double C_E = 0.1439;
+	
+	// page 201
+	private static double[][] o_res_tab = {
+			{ 56.2648, 118.7505},
+			{ 58.4466, 62.4863 },
+			{ 59.5910, 60.3061 },
+			{ 60.4348, 59.1642 },
+			{ 61.1506, 58.3239 },
+			{ 61.8002, 57.6125 },
+			{ 62.4112, 56.9682 },
+			{ 62.9980, 56.3634 },
+			{ 63.5685, 55.7839 },
+			{ 64.1272, 55.2214 },
+			{ 64.6779, 54.6728 },
+			{ 65.2240, 54.1294 },
+			{ 65.7626, 53.5960 },
+			{ 66.2978, 53.0695 },
+			{ 66.8313, 52.5458 },
+			{ 67.3627, 52.0259 },
+			{ 67.8923, 51.5091 },
+			{ 68.4205, 50.9949 },
+			{ 68.9478, 50.4830 },
+			{ 69.4741, 49.9730 },
+			{ 70.0000, 49.4648 },
+			{ 70.5249, 48.9582 },
+			{ 71.0497, 48.4530 }
+	};
+	
+	// page 207
+	private static double[][] vap_dens_tab = {
+			{ 0.0,  5.947e0  },
+			{ 2.0,  2.946e0  },
+			{ 4.0,  1.074e0  },
+			{ 6.0,  3.779e-1 },
+			{ 8.0,  1.172e-1 },
+			{ 10.0, 1.834e-2 },
+			{ 12.0, 3.709e-3 },
+			{ 14.0, 8.413e-4 },
+			{ 16.0, 6.138e-4 },
+			{ 18.0, 4.449e-4 },
+			{ 20.0, 4.449e-4 },
+			{ 22.0, 5.230e-4 },
+			{ 24.0, 6.138e-4 },
+			{ 26.0, 7.191e-4 },
+			{ 28.0, 5.230e-4 },
+			{ 30.0, 3.778e-4 },
+			{ 32.0, 2.710e-4 }
+	};
+
+//	
+//
+////////////////////////////////
+//	
+//	Public functions to compute atmospheric attenuation
+//
+//
+	/** Compute 2-way atmospheric loss with known terminal heights and straight line distance. Default of N = 50
+	 * 
+	 * @param h_low__km Height of lower terminal above sea level	(km)
+	 * @param h_high__km Height of upper terminal above sea level	(km)
+	 * @param d__km Straight-line distnace			(km)
+	 * @param f__ghz Frequency 						(Ghz)
+	 * @return 2-way attenuation					(dB)
+	 */
+	public static double computeAtmosphericLoss(double h_low__km, double h_high__km, double d__km, double f__ghz) {
+		double theta_0__rad = approxElevationAngle(h_low__km, h_high__km, d__km, 50);
+		return computeLoss(h_low__km, h_high__km, theta_0__rad, f__ghz, 50);
+	}
+	/** Compute 2-way atmospheric loss with known terminal heights and straight line distance with specified number of iterations
+	 * 
+	 * @param h_low__km Height of lower terminal above sea level	(km)
+	 * @param h_high__km Height of upper terminal above sea level	(km)
+	 * @param d__km Straight-line distnace			(km)
+	 * @param f__ghz Frequency 						(Ghz)
+	 * @param N Number of iterations for numerical integration Good range between 10 and 100.
+	 * @return 2-way attenuation					(dB)
+	 */
+	public static double computeAtmosphericLoss(double h_low__km, double h_high__km, double d__km, double f__ghz, int N) {
+		double theta_0__rad = approxElevationAngle(h_low__km, h_high__km, d__km, N);
+		return computeLoss(h_low__km, h_high__km, theta_0__rad, f__ghz, (double)N);
+	}
+	/** Compute 2-way atmospheric loss with known initial elevation angle/ Default of N = 50
+	 * 
+	 * @param h_low__km Height of lower terminal above sea level	(km)
+	 * @param h_high__km Height of upper terminal above sea level	(km)
+	 * @param theta_0__rad Initial elevation angle of antenna		(km)
+	 * @param f__ghz Frequency 						(Ghz)
+	 * @return 2-way attenuation					(dB)
+	 */
+	public static double computeAtmosphericLossElevAngleKnown(double h_low__km, double h_high__km, double theta_0__rad, double f__ghz) {
+		return computeLoss(h_low__km, h_high__km, theta_0__rad, f__ghz, 50);
+	}
+	/** Compute 2-way atmospheric loss with known initial elevation angle with specified number of iterations
+	 * 
+	 * @param h_low__km Height of lower terminal above sea level	(km)
+	 * @param h_high__km Height of upper terminal above sea level	(km)
+	 * @param theta_0__rad Initial elevation angle of antenna		(km)
+	 * @param f__ghz Frequency 						(Ghz)
+	 * @param N Number of iterations for numerical integration Good range between 10 and 100.
+	 * @return 2-way attenuation					(dB)
+	 */
+	public static double computeAtmosphericLossElevAngleKnown(double h_low__km, double h_high__km, double theta_0__rad, double f__ghz, int N) {
+		return computeLoss(h_low__km, h_high__km, theta_0__rad, f__ghz, (double)N);
+	}	
+//	
+//
+////////////////////////////////
+//	
+//	Public functions to compute range
+//
+//
+	/** Compute ray range after refraction with known terminal elevations and straight line distance
+	 * 
+	 * @param h_low__km Height of lower terminal above surface	(km)
+	 * @param h_high__km Height of upper terminal above surface	(km)
+	 * @param d__km Straight-line distnace			(km)
+	 * @return 1-way range							(km)
+	 */
+	public static double computeRayRange(double h_low__km, double h_high__km, double d__km) {
+		double theta_0__rad = approxElevationAngle(h_low__km, h_high__km, d__km, 50);
+		return computeRange(h_high__km, theta_0__rad, 50);
+	}
+	/** Compute ray range after refraction with known terminal elevations and straight line distance with specified number of iterations
+	 * 
+	 * @param h_low__km Height of lower terminal above surface	(km)
+	 * @param h_high__km Height of upper terminal above surface	(km)
+	 * @param d__km Straight-line distnace			(km)
+	 * @param N Number of iterations for numerical integration Good range between 10 and 100.
+	 * @return 1-way range							(km)
+	 */
+	public static double computeRayRange(double h_low__km, double h_high__km, double d__km, int N) {
+		double theta_0__rad = approxElevationAngle(h_low__km, h_high__km, d__km, N);
+		return computeRange(h_high__km, theta_0__rad, (double)N);
+	}
+	/** Compute ray range after refraction with known terminal elevations and initial elevation angle
+	 * 
+	 * @param h_high__km Height of target above surface	(km)
+	 * @param theta_0__rad Initial elevation angle of antenna		(km)
+	 * @return 1-way range		(km)
+	 */
+	public static double computeRayRangeElevAngleKnown(double h_high__km, double theta_0__rad) {
+		return computeRange(h_high__km, theta_0__rad, 50);
+	}
+	/** Compute ray range after refraction with known terminal elevations and initial elevation angle with specified number of iterations
+	 * 
+	 * @param h_high__km Height of target above surface	(km)
+	 * @param theta_0__rad Initial elevation angle of antenna		(km)
+	 * @param N Number of iterations for numerical integration Good range between 10 and 100.
+	 * @return 1-way range		(km)
+	 */
+	public static double computeRayRangeElevAngleKnown(double h_high__km, double theta_0__rad, int N) {
+		return computeRange(h_high__km, theta_0__rad, (double)N);
+	}
+	
+	/** Accounting for atmospheric refraction, approximate the initial elevation angle of the antenna
+	 * 
+	 * @param h_low__km Altitude of lower terminal
+	 * @param h_high__km Altitude of upper terminal
+	 * @param d__km Straight-line distance between terminals
+	 * @param N Number of iterations in numerical integration
+	 * @return theta_0__rad -> approximate initial elevation angle
+	 */
+	public static double approxElevationAngle(double h_low__km, double h_high__km, double d__km, int N) {
+		// Earth radials of lower & upper terminals
+		double r_1__km = h_low__km  + 6370.0;
+		double r_2__km = h_high__km + 6370.0;
+		
+		// Angle between r_1 and d
+		double psi__rad = FastMath.acos((d__km*d__km + r_1__km*r_1__km - r_2__km*r_2__km) / (2*d__km*r_1__km));
+		// Central angle at Earth center between r_1 and r_2
+		double phi__rad = FastMath.acos((r_1__km*r_1__km+ r_2__km*r_2__km - d__km*d__km) / (2.0*r_1__km*r_2__km));
+		// Straight-line elevation angle
+		double theta_t__rad = psi__rad - Math.PI/2.0;
+		
+		double error = theta_t__rad;
+		double d_error = 1.0;
+		double delta = (theta_t__rad < 0.01) ? 0.001 : 0.01;
+		
+		double theta_0__rad = theta_t__rad;
+		
+		int j = 0;
+		// Iterate until error is < 1 meter or 30 times, whichever comes first
+		while(Math.abs(d_error) > 0.001 && ++j < 30) {
+			double d_test = 0.0;
+			
+			if(theta_t__rad >= 0.0) {
+				if(error < 0.0) delta /= 2.0;
+				theta_0__rad += (error > 0.0) ? delta : -delta;
+			}
+			else {
+				if(error > 0.0) delta /= 2.0;
+				theta_0__rad -= (error > 0.0) ? delta : -delta;
+			}
+			
+			// Calculate straight line distance at given elevation angle
+			d_test = calcDistance(h_low__km , h_high__km, theta_0__rad, (double)N);
+			// Update error
+			d_error = d_test - d__km;
+			
+			// Calculate central angle as function of straight-line distance
+			double phi_test = FastMath.acos((r_1__km*r_1__km+ r_2__km*r_2__km - d_test*d_test) / (2.0*r_1__km*r_2__km));
+			// Update error
+			error = phi_test - phi__rad;
+		}
+		
+		return theta_0__rad;
+	}	
+//	
+//
+////////////////////////////////
+//	
+//	Private helper functions
+//
+//	
+	//TODO Verify theory behind these calculations. Should provide analytical solution.
+	private static double calcElevationAngle(double h_low, double h_high, double d) {
+		final double A_0 = 6370.0;
+		
+		double h = h_high;
+		double r_1 = h_low + A_0;
+		double r_2 = h_high + A_0;
+		
+		double t1 = (r_1*r_1 + r_2*r_2 - d*d)/(2.0*r_1*r_2);
+		
+		double phi_deriv = -1.0/Math.sqrt(1.0 - t1*t1);
+		phi_deriv *= ((r_2*r_2 - r_1*r_1 + d*d) / (2.0*r_1*r_2*r_2));
+		
+		
+		double num = getRefractivity(h)*(1.0+h/A_0)*r_1*phi_deriv;
+		double denom = getRefractivity(0.0)*Math.sqrt(1.0 + (r_1*phi_deriv)*(r_1*phi_deriv));
+		
+		double theta_0__rad = FastMath.acos(num / denom) - Math.PI/2.0;
+				
+		return theta_0__rad;
+	}
+	
+	/** Accounting for refraction, approximate the straight-line distance between terminals
+	 * 
+	 * @see Radar Range-Performance Analysis (Lamont V. Blake) Eq. 5.7 solved for dx
+	 * @param h_low__km Height above surface of lower terminal
+	 * @param h_high__km Height above surface of upper terminal
+	 * @param theta_0__rad Initial elevation angle of antenna
+	 * @param N Number of iterations in numerical integration
+	 * @return d -> Straight line distance in km
+	 */
+	private static double calcDistance(double h_low__km, double h_high__km, double theta_0__rad, double N) {
+		// radius of Earth
+		final double A_0__km = 6370.0;
+		
+		// Earth radials of lower & upper terminals
+		double r_1__km = h_low__km + A_0__km;
+		double r_2__km = h_high__km + A_0__km;
+		
+		MidPointIntegrator solver = new MidPointIntegrator(0.9, 0.95, 10, 64);
+		double mid_reimann = solver.integrate(5000, h -> 1.0/Math.sqrt(Math.pow((getRefractivity(h)*(1.0+(h)/A_0__km))/(getRefractivity(0.0)*FastMath.cos(theta_0__rad)), 2.0) - 1.0), 0.0, h_high__km);
+		/*
+		double mid_reimann = 0.0;
+		double h = h_high__km/N;	
+		
+		// Midpoint approximation of reformulated integral
+		for(int i=0; i<N; ++i) {
+			double low  = h*i;
+			double high = h*(i+1);
+			
+			double x__km = Math.sqrt(Math.pow((getRefractivity((low+high)/2.0)*(1.0+((low+high)/2.0)/A_0__km))/(getRefractivity(0.0)*FastMath.cos(theta_0__rad)), 2.0) - 1.0);
+		
+			mid_reimann += 1.0/x__km;
+		}
+		mid_reimann *= h;
+		*/
+		// Central angle at Earth center
+		double phi = mid_reimann / r_1__km;
+		
+		// Straight line distance (law of cosines)
+		double d = Math.sqrt(r_1__km*r_1__km + r_2__km*r_2__km  - 2.0*r_1__km*r_2__km*FastMath.cos(phi));
+		return d;
+	}
+	
+	/** Compute atmospheric loss using exponential model
+	 * 
+	 * @see Radar Range-Performance Analysis (Lamont V. Blake) Eq. 5.46
+	 * @param surface_height__km Altitude of surface in km
+	 * @param range__km Range in km
+	 * @param theta_0__rad Initial elevation angle of antenna
+	 * @param f__ghz Frequency in GHz
+	 * @param N Number of iterations for numerical integration
+	 * 
+	 * @return 2-way attenuation in dB
+	 */
+	private static double computeLoss(double surface_height__km, double h_high__km, double theta_0__rad, double f__ghz, double N) {
+		double mid_reimann = 0.0;
+		double h = h_high__km/N;		
+		
+		// Midpoint approximation of Eq 5.46
+		for(int i=0; i<N; ++i) {
+			double low = h*i;
+			double high = h*(i+1);
+			mid_reimann += computeLossAtHeight(surface_height__km, (low+high)/2.0, f__ghz, theta_0__rad);
+		}
+		mid_reimann *= h;
+		return 2*mid_reimann;
+	}
+	
+	
+	/** Compute ray range using exponential model
+	 * 
+	 * @see Radar Range-Performance Analysis (Lamont V. Blake) Eq. 5.9
+	 * @param h_low__km Height above MSL of lower terminal
+	 * @param h_high__km Height above MSL of upper terminal
+	 * @param theta_0__rad Initial elevation angle of antenna
+	 * @param N Number of iterations for numerical integration
+	 * 
+	 * @return Approximation of actual ray distance
+	 */
+	private static double computeRange(double h_high__km, double theta_0__rad, double N) {
+		//double h = h_high__km / N;
+		//double mid_reimann = 0;
+		
+		MidPointIntegrator solver = new MidPointIntegrator(0.9, 0.95, 10, 64);
+		double mid_reimann = solver.integrate(5000, h -> getRefractivity(h) / Math.sqrt(1.0 - Math.pow((getRefractivity(0)*FastMath.cos(theta_0__rad)) / (getRefractivity(h)*(1.0+(h/6370.0))), 2.0)), 0.0, h_high__km);
+		
+		// Midpoint approximation of Eq. 5.9
+		//for(int i=0; i < N; ++i) {
+		//	double left  = h*i;
+		//	double right = h*(i+1);
+		//	mid_reimann += computeRangeAtHeight((left+right)/2.0, theta_0__rad);
+		//}
+		//		
+		//mid_reimann *= h;
+		return mid_reimann;
+	}
+
+		
+	// Eq. 5.9 in Radar Range Performance Analysis
+	private static double computeRangeAtHeight(double h__km, double theta_0__rad) {
+		if(Math.abs(theta_0__rad) < 1.0e-6) theta_0__rad = (theta_0__rad < 0.0) ? -1.0e-6 : 1.0e-6;
+				
+		double C = (getRefractivity(0)*FastMath.cos(theta_0__rad)) / (getRefractivity(h__km)*(1.0+(h__km/6370.0)));
+		double output = getRefractivity(h__km) / Math.sqrt(1.0 - C*C);
+		
+		return output;
+	}
+	
+	// Eq. 5.46 in Radar Range Performance Analysis
+	private static double computeLossAtHeight(double surface_height__km, double h__km, double f__ghz, double theta_0__rad) {
+		if(Math.abs(theta_0__rad) < 1.0e-6) theta_0__rad = (theta_0__rad < 0.0) ? -1.0e-6 : 1.0e-6;
+		
+		double C = (getRefractivity(0)*FastMath.cos(theta_0__rad)) / (getRefractivity(h__km)*(1.0+(h__km/6370.0)));
+		double gamma = computeOxygenCoefficient(h__km+surface_height__km, f__ghz) + computeWaterVaporCoefficient(h__km+surface_height__km, f__ghz);
+		double output = gamma / Math.sqrt(1.0 - C*C);
+		
+		return output;
+	}
+	
+	/** Calculate temperature and pressure as function of altitude
+	 * 
+	 * @see Referenced in pages 205-206 in Radar Range-Performance Analysis (Lamont V. Blake)
+	 * @param h__m Altitude in meters above MSL
+	 * @return Object containing temperature (K) and pressure (mbar)
+	 */
+	private static TempPres computeTempPressure(double h__m) {
+		double r__m = 6370000.0;
+		
+		double h_g__m = (r__m*h__m) / (r__m + h__m);
+		
+		double R 	= 8.31432;
+		double g_0	= 9.80665;
+		double M 	= 0.0289644;
+		
+		double T__k, p__mbar;
+		if(h_g__m < 11000.0) {
+			double P_b 	= 1013.25;
+			double T_b 	= 288.16;
+			double L_b	= -0.0065;
+			
+			T__k 	= T_b + L_b*h_g__m;
+			p__mbar = P_b*Math.pow(T_b/(T_b + L_b*h_g__m), (g_0*M)/(R*L_b));
+		}
+		else if(h_g__m < 25000.0) {
+			double P_b 	= 226.33426;
+			double T_b	= 216.66;
+			
+			T__k 	= T_b;
+			p__mbar = P_b*Math.exp((-g_0*M*(h_g__m-11000.0))/(R*T_b));
+		}
+		else {
+			double P_b	= 24.890272;
+			double T_b 	= 216.66;
+			double L_b  = 0.0030;
+			
+			T__k 	= T_b + L_b*(h_g__m-25000.0);
+			p__mbar = P_b*Math.pow(T_b/(T_b + L_b*(h_g__m-25000)), (g_0*M)/(R*L_b));
+		}
+		
+		TempPres output = new TempPres(T__k, p__mbar);
+		return output;
+	}
+	
+	/** Compute the attenuation coefficient for oxygen
+	 * 
+	 * @see pages 200-202 in Radar Range-Performance Analysis (Lamont V. Blake)
+	 * @param h__km Altitude from MSL (km)
+	 * @param f__ghz Frequency (ghz)
+	 * @return dB/km
+	 */
+	private static double computeOxygenCoefficient(double h__km, double f__ghz) {
+		double g_h;
+		
+		if(h__km <= 8.0) 			g_h = 0.640;
+		else if(h__km <= 25.0) 		g_h = 0.640 + 0.04218*(h__km-8.0);
+		else						g_h = 1.357;
+		
+		
+		TempPres output = computeTempPressure(h__km*1000.0);
+		double T__k = output.T__k;
+		double p__mbar = output.p__mbar;
+		
+		double p_0__mbar = 1013.25;
+		double T_0__k = 300.0;
+				
+		double delta_f__ghz = g_h * p__mbar/p_0__mbar * T_0__k/T__k;
+		double F_0 = delta_f__ghz / (f__ghz*f__ghz + delta_f__ghz*delta_f__ghz);
+				
+		double A = 0;
+		for(int i=0; i<23; ++i) {
+			double[] F_N = new double[2];
+			for(int j=0; j<2; ++j) {
+				double term1 = delta_f__ghz/((o_res_tab[i][j]-f__ghz)*(o_res_tab[i][j]-f__ghz)+(delta_f__ghz*delta_f__ghz));
+				double term2 = delta_f__ghz/((o_res_tab[i][j]+f__ghz)*(o_res_tab[i][j]+f__ghz)+(delta_f__ghz*delta_f__ghz));
+				F_N[j] = term1 + term2; 
+			}
+			
+			double N = 2.0*i+1.0;
+			double[] mu = { (N*(2.0*N+3.0))/(N+1.0), ((N+1.0)*(2.0*N-1.0))/N };
+			double mu_0 = (2.0*(N*N + N + 1.0)*(2.0*N + 1.0)) / (N*(N+1.0));
+			
+			double E_N_over_k = 2.06844*N*(N+1.0);
+			
+			A += (F_N[0]*mu[0] + F_N[1]*mu[1] + F_0*mu_0)*Math.exp(-E_N_over_k/T__k);
+		}
+		
+		return 2.0058*p__mbar*f__ghz*f__ghz*A/(T__k*T__k*T__k);
+	}
+	
+	/** Compute the attenuation coefficient for water vapor
+	 * 
+	 * @see pages 202-204 in Radar Range-Performance Analysis (Lamont V. Blake)
+	 * @param h__km Altitude from MSL (km)
+	 * @param f__ghz Frequency (ghz)
+	 * @return dB/km
+	 */
+	private static double computeWaterVaporCoefficient(double h__km, double f__ghz) {
+		TempPres output = computeTempPressure(h__km*1000.0);
+		double T__k = output.T__k;
+		double p__mbar = output.p__mbar;
+		
+		double p_w__g_m3 = 1.26114*interpolateVaporDensity(h__km);
+		double p_w__torr = p_w__g_m3*T__k / 288.75;
+		double p_t__torr = 0.75*p__mbar;
+		
+		double delta_f__ghz = 17.99e-3*(p_w__torr*(300.0/T__k) + 0.20846*(p_t__torr-p_w__torr)*Math.pow(300.0/T__k, 0.63));
+		
+		double f_r__ghz = 22.235;
+		
+		double term1 = delta_f__ghz / ((f_r__ghz-f__ghz)*(f_r__ghz-f__ghz) + delta_f__ghz*delta_f__ghz);
+		double term2 = delta_f__ghz / ((f_r__ghz+f__ghz)*(f_r__ghz+f__ghz) + delta_f__ghz*delta_f__ghz);
+		
+		double F = (f__ghz/f_r__ghz) * (term1 + term2);
+		
+		double gamma 	 = 2.535e-3*(f__ghz*p_w__torr*Math.pow(300.0/T__k, 7.0/2.0)*Math.exp(2.144*(1.0-300.0/T__k))*F);
+		double gamma_res = (7.347e-3) * p__mbar * p_w__g_m3 * Math.pow(T__k, -5.0/2.0) * f__ghz * f__ghz;
+		
+		return gamma + gamma_res;
+	}
+	private static double interpolateVaporDensity(double h__km) {
+		if(h__km < 0.001) return vap_dens_tab[0][1];
+		if(h__km > 32.00) return vap_dens_tab[15][1];
+		
+		int i = 1;
+		while(h__km >= vap_dens_tab[i][0] && i < 15) ++i;
+		
+		if(h__km < vap_dens_tab[i][0]) return ((vap_dens_tab[i][1]-vap_dens_tab[i-1][1])*(h__km-vap_dens_tab[i-1][0]))/(vap_dens_tab[i][0]-vap_dens_tab[i-1][0]) + vap_dens_tab[i-1][1];
+		else if (h__km == vap_dens_tab[i][1]) return vap_dens_tab[i][1];
+		else return vap_dens_tab[15][1];
+	}
+	private static double getRefractivity(double h__km) {
+		double n_0 = (N_S/1.0e6) + 1.0;
+		return 1.0 + (n_0 - 1.0)*Math.exp(-C_E*h__km);
+	}
+//	
+//
+////////////////////////////////
+//	
+//	Main function
+//
+//
+	public static void main(String[] args) {	
+		double h_high__km 	= 40000.0*0.0003048;
+		double h_low__km  	= 0.0;
+		double f__ghz 		= 0.5;
+		
+		int N 				= 20; 		// Depending on desired accuracy 15 <= N <= 100 is a good range.
+		
+		double d__km = 300.0;
+				
+		double theta_0__rad = 0.0;
+		double range__km 	= 0.0;
+		double loss__db 	= 0.0;
+		
+		long sum_time = 0;
+		int i=0;
+		
+		// Determine time cost of function
+		for(i=0; i<1000; ++i) {
+			long begin_time = System.currentTimeMillis();
+			loss__db = computeAtmosphericLoss(h_low__km, h_high__km, d__km, f__ghz, N);
+			sum_time += System.currentTimeMillis()-begin_time;
+		}
+		
+		
+		// Calculate variables for analyzing output
+		theta_0__rad = approxElevationAngle(h_low__km, h_high__km, d__km, N);
+		range__km = computeRange(h_high__km, theta_0__rad, (double)N);
+		
+		double r_1__km = h_low__km  + 6370.0;
+		double r_2__km = h_high__km + 6370.0;
+		
+		double psi__rad = FastMath.acos((d__km*d__km + r_1__km*r_1__km - r_2__km*r_2__km) / (2.0*d__km*r_1__km));
+		double theta_t__rad = psi__rad - Math.PI/2.0;
+		
+		System.out.println(' ');
+		System.out.format("theta_t__deg:%9.6f\ttheta_0__deg:%9.6f%n", theta_t__rad*180.0/Math.PI, theta_0__rad*180.0/Math.PI);
+		System.out.format("Range: %9.6f\t Loss: %9.6f%n", range__km/1.852, loss__db);
+		System.out.println((double)sum_time / (double)i);		
+	
+	}
+}

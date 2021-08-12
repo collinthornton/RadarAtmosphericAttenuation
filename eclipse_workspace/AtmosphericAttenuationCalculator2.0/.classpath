@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-14">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="lib/commons-math3-3.6.1/commons-math3-3.6.1.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:////tinker-2k/DFS1/76SMXG/Data/559_SMXS/OFP/DMS%20Tools/Development/9001%20Projects/Radar_Tools/Atmospheric_Attenuation_Calculator/radar_calculator/eclipse_workspace/AtmosphericAttenuationCalculator2.0/lib/commons-math3-3.6.1/docs/apidocs/"/>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

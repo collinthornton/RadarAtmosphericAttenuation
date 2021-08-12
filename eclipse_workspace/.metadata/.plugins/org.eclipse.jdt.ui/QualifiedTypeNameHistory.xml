@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <qualifiedTypeNameHistroy>
-    <fullyQualifiedTypeName name="main.p528.RayOptics.RayOpticsData"/>
-    <fullyQualifiedTypeName name="main.p528.TerminalGeometry.Geom"/>
-    <fullyQualifiedTypeName name="main.p528.Path"/>
-    <fullyQualifiedTypeName name="main.p528.Path.UserInput"/>
+    <fullyQualifiedTypeName name="main.blake.AtmosphericAbsorption"/>
+    <fullyQualifiedTypeName name="org.apache.commons.math3.exception.TooManyEvaluationsException"/>
+    <fullyQualifiedTypeName name="org.apache.commons.math3.exception.MaxCountExceededException"/>
+    <fullyQualifiedTypeName name="org.apache.commons.math3.util.FastMath"/>
+    <fullyQualifiedTypeName name="org.apache.commons.math3.analysis.UnivariateFunction"/>
+    <fullyQualifiedTypeName name="main.p676.AtmosphericAttenuationCalculator"/>
 </qualifiedTypeNameHistroy>

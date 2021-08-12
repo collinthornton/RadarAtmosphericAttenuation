@@ -17,25 +17,25 @@ public class LongTermVariability {
 	public static double compute(TerminalGeometry.Geom lt, TerminalGeometry.Geom ht, Path path, double q, double f_theta_h, double A_T) {
 		
 		// <<Step 1>> Compute smooth Earth horizon distance via ray tracing
-		RayTrace.RayTraceData trace = RayTrace.compute(lt.h, 329);
+		RayTrace.RayTraceData trace = RayTrace.compute(lt.h, 329.0);
 		double d_Lq_1 = trace.d_r;
-		trace = RayTrace.compute(ht.h, 329);
+		trace = RayTrace.compute(ht.h, 329.0);
 		double d_Lq_2 = trace.d_r;
 		
 		
 		// <<Step 2>> Compute effective distance between terminals
-		double d_qs = 60*Math.pow(100/path.input.f, 1/3);
+		double d_qs = 60.0*Math.pow(100/path.input.f, 1.0/3.0);
 		double d_Lq = d_Lq_1 + d_Lq_2;
 		double d_q = d_Lq + d_qs;
 		double d_e;
 		
-		if(path.input.d <= d_q) d_e = (130*path.input.d)/d_q;
-		else d_e = 130 + path.input.d - d_q;
+		if(path.input.d <= d_q) d_e = (130.0*path.input.d)/d_q;
+		else d_e = 130.0 + path.input.d - d_q;
 		
 		
 		// <<Step 3>>
 		double g_01, g_09;
-		if(path.input.f <= 1600) {
+		if(path.input.f <= 1600.0) {
 			g_01 = 0.21*Math.sin(5.22*Math.log10(path.input.f/200)) + 1.28;
 			g_09 = 0.18*Math.sin(5.22*Math.log10(path.input.f/200)) + 1.23;
 		}
@@ -95,11 +95,11 @@ public class LongTermVariability {
 		
 		
 		// <<Step 8>>
-		double A_YI = Y_el_01 - A_T - 3;
-		path.atten.A_Y = Math.max(A_YI, 0);
+		double A_YI = Y_el_01 - A_T - 3.0;
+		path.atten.A_Y = Math.max(A_YI, 0.0);
 		
 		
-		// <<Step 9>> Compute total variability loss if q >- 0.10
+		// <<Step 9>> Compute total variability loss if q >= 0.10
 		if(q >= 0.10) return Y_el_q - path.atten.A_Y;
 		
 		
