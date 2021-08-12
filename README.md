@@ -1,9 +1,10 @@
-# Code for 2020 internship as Electronics Engineering at Tinker AFB.
+# Code for 2020 internship as Electronics Engineering at Tinker AFB
 * Received permission to publish/reuse by supervisors
 
 
 ## Repository Structure
-Driver code: /eclipse_workspace/AtmosphericAttenuationCalculator2.0/src/main/TransmissionCalculator.java
+Driver code: [TransmissionCalculator.java](/eclipse_workspace/AtmosphericAttenuationCalculator2.0/src/main/TransmissionCalculator.java)
+
 Resources (including whitepapers and some generated data): resources/
 
 
